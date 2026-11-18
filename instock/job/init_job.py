@@ -57,6 +57,7 @@ def main():
         logging.error("执行信息：数据库不存在，将创建。")
         # 检查数据库失败，
         create_new_database()
+    create_new_base_table()
     # 执行数据初始化。
 
 

@@ -20,7 +20,7 @@ def main():
     broker = 'gf_client'
     log_handler = DefaultLogHandler(name='交易服务', log_type='file', filepath=log_filepath)
     m = MainEngine(broker, need_data, log_handler)
-    m.is_watch_strategy = True  # 策略文件出现改动时,自动重载,不建议在生产环境下使用
+    m.is_watch_strategy = False  # 策略文件出现改动时,自动重载,不建议在生产环境下使用
     m.load_strategy()
     m.start()
 

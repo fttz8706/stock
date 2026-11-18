@@ -3,7 +3,7 @@
 
 import datetime
 from collections import deque
-from threading import Thread
+from threading import Thread, RLock
 import arrow
 from dateutil import tz
 import time
@@ -112,6 +112,7 @@ class ClockEngine:
         # 默认使用当地时间的时区
         self.tzinfo = tzinfo or tz.tzlocal()
 
+        self._lock = RLock()
         self.event_engine = event_engine
         self.is_active = True
         self.clock_engine_thread = Thread(target=self.clocktick, name="ClockEngine.clocktick")
@@ -181,6 +182,10 @@ class ClockEngine:
             self._tock()
 
     def _tock(self):
+        with self._lock:
+            self._tock_locked()
+
+    def _tock_locked(self):
         # 间隔事件
         for handler in self.clock_interval_handlers:
             if handler.is_active():
@@ -212,6 +217,10 @@ class ClockEngine:
         return self._register_moment(clock_type, moment, makeup=makeup)
 
     def _register_moment(self, clock_type, moment, is_trading_date=True, makeup=False, call=None):
+        with self._lock:
+            return self._register_moment_locked(clock_type, moment, is_trading_date, makeup, call)
+
+    def _register_moment_locked(self, clock_type, moment, is_trading_date, makeup, call):
         handlers = list(self.clock_moment_handlers)
         handler = ClockMomentHandler(self, clock_type, moment, is_trading_date, makeup, call)
         handlers.append(handler)
@@ -226,5 +235,10 @@ class ClockEngine:
 
     def _register_interval(self, interval_minute, trading=True, call=None):
         handler = ClockIntervalHandler(self, interval_minute, trading, call)
-        self.clock_interval_handlers.add(handler)
+        with self._lock:
+            self.clock_interval_handlers.add(handler)
         return handler
+
+    def unregister_moment(self, handler):
+        with self._lock:
+            self.clock_moment_handlers = deque(h for h in self.clock_moment_handlers if h is not handler)

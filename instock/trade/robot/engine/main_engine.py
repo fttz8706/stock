@@ -9,7 +9,7 @@ import sys
 import threading
 import time
 from collections import OrderedDict
-from threading import Thread, Lock
+from threading import Thread, RLock
 import easytrader
 from instock.trade.robot.engine.event_engine import EventEngine
 from instock.trade.robot.engine.clock_engine import ClockEngine
@@ -57,9 +57,11 @@ class MainEngine:
         self._modules = {}
         self._names = None
         # 加载锁
-        self.lock = Lock()
+        self.lock = RLock()
+        self._listeners = {}
+        self._watch_stop = threading.Event()
         # 加载线程
-        self._watch_thread = Thread(target=self._load_strategy, name="MainEngine.watch_reload_strategy")
+        self._watch_thread = Thread(target=self._load_strategy, name="MainEngine.watch_reload_strategy", daemon=True)
 
         # shutdown 函数
         self.before_shutdown = []  # 关闭引擎前的 shutdown
@@ -109,12 +111,12 @@ class MainEngine:
             elif self._cache.get(strategy_file, None) is not None:
                 # 注销策略的监听
                 old_strategy = self.get_strategy(strategy_module.Strategy.name)
-                if old_strategy is None:
-                    for s in self.strategy_list:
-                        print(s.name)
-                self.log.warn(u'卸载策略: %s' % old_strategy.name)
-                self.strategy_listen_event(old_strategy, "unlisten")
-                time.sleep(2)
+                if old_strategy is not None:
+                    self.log.warn(u'卸载策略: %s' % old_strategy.name)
+                    self.strategy_listen_event(old_strategy, "unlisten")
+                    old_strategy.clock_engine.cleanup()
+                    self.strategy_list.remove(old_strategy)
+                    old_strategy.shutdown()
                 reload = True
             # 重新加载
             if reload:
@@ -139,13 +141,17 @@ class MainEngine:
         :param _type: "listen" OR "unlisten"
         :return:
         """
-        func = {
-            "listen": self.event_engine.register,
-            "unlisten": self.event_engine.unregister,
-        }.get(_type)
-
-        # 时钟事件
-        func(ClockEngine.EventType, strategy.clock)
+        if _type == "listen":
+            def guarded(event):
+                with self.lock:
+                    if strategy in self.strategy_list:
+                        strategy.clock(event)
+            self._listeners[strategy] = guarded
+            self.event_engine.register(ClockEngine.EventType, guarded)
+        else:
+            callback = self._listeners.pop(strategy, None)
+            if callback is not None:
+                self.event_engine.unregister(ClockEngine.EventType, callback)
 
     def load_strategy(self, names=None):
         """动态加载策略
@@ -163,12 +169,12 @@ class MainEngine:
             self._watch_thread.start()
 
     def _load_strategy(self):
-        while True:
+        while not self._watch_stop.is_set():
             try:
                 self.load_strategy(self._names)
-                time.sleep(2)
             except Exception as e:
-                print(e)
+                self.log.warn("策略更新失败: %s" % type(e).__name__)
+            self._watch_stop.wait(2)
 
     def get_strategy(self, name):
         for strategy in self.strategy_list:
@@ -204,6 +210,9 @@ class MainEngine:
         :return:
         """
         self.log.debug("开始关闭进程...")
+        self._watch_stop.set()
+        if self._watch_thread.is_alive():
+            self._watch_thread.join()
         # 所有 shutdown 前的触发点
         for st in self.before_shutdown:
             st()

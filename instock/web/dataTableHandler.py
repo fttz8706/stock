@@ -7,6 +7,8 @@ from abc import ABC
 from tornado import gen
 # import logging
 import datetime
+import tornado.web
+from instock.lib.validation import trade_date
 import instock.lib.trade_time as trd
 import instock.core.singleton_stock_web_module_data as sswmd
 import instock.web.base as webBase
@@ -33,7 +35,10 @@ class GetStockHtmlHandler(webBase.BaseHandler, ABC):
     @gen.coroutine
     def get(self):
         name = self.get_argument("table_name", default=None, strip=False)
-        web_module_data = sswmd.stock_web_module_data().get_data(name)
+        try:
+            web_module_data = sswmd.stock_web_module_data().get_data(name)
+        except KeyError:
+            raise tornado.web.HTTPError(400, reason="未知的数据表")
         run_date, run_date_nph = trd.get_trade_date_last()
         if web_module_data.is_realtime:
             date_now_str = run_date_nph.strftime("%Y-%m-%d")
@@ -48,7 +53,10 @@ class GetStockDataHandler(webBase.BaseHandler, ABC):
     def get(self):
         name = self.get_argument("name", default=None, strip=False)
         date = self.get_argument("date", default=None, strip=False)
-        web_module_data = sswmd.stock_web_module_data().get_data(name)
+        try:
+            web_module_data = sswmd.stock_web_module_data().get_data(name)
+        except KeyError:
+            raise tornado.web.HTTPError(400, reason="未知的数据表")
         self.set_header('Content-Type', 'application/json;charset=UTF-8')
 
         if date is None:
@@ -66,6 +74,11 @@ class GetStockDataHandler(webBase.BaseHandler, ABC):
             order_columns = f",{web_module_data.order_columns}"
 
         sql = f" SELECT *{order_columns} FROM `{web_module_data.table_name}`{where}{order_by}"
-        data = self.db.query(sql,date)
+        if date is not None:
+            try:
+                trade_date(date)
+            except ValueError as exc:
+                raise tornado.web.HTTPError(400, reason=str(exc))
+        data = self.db.query(sql, date) if date is not None else self.db.query(sql)
 
         self.write(json.dumps(data, cls=MyEncoder))

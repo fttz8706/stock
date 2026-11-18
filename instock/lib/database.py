@@ -5,6 +5,8 @@ import logging
 import os
 import pymysql
 from sqlalchemy import create_engine
+from sqlalchemy.engine import URL
+import re
 from sqlalchemy.types import NVARCHAR
 from sqlalchemy import inspect
 
@@ -12,8 +14,8 @@ __author__ = 'myh '
 __date__ = '2023/3/10 '
 
 db_host = "localhost"  # 数据库服务主机
-db_user = "root"  # 数据库访问用户
-db_password = "root"  # 数据库访问密码
+db_user = "instock"  # 数据库访问用户
+db_password = ""  # 数据库访问密码
 db_database = "instockdb"  # 数据库名称
 db_port = 3306  # 数据库服务端口
 db_charset = "utf8mb4"  # 数据库字符集
@@ -35,9 +37,11 @@ _db_port = os.environ.get('db_port')
 if _db_port is not None:
     db_port = int(_db_port)
 
-MYSQL_CONN_URL = "mysql+pymysql://%s:%s@%s:%s/%s?charset=%s" % (
-    db_user, db_password, db_host, db_port, db_database, db_charset)
-logging.info(f"数据库链接信息：{ MYSQL_CONN_URL}")
+if not db_password:
+    raise RuntimeError("请设置 db_password，数据库密码不得为空")
+MYSQL_CONN_URL = URL.create("mysql+pymysql", username=db_user, password=db_password,
+                           host=db_host, port=db_port, database=db_database,
+                           query={"charset": db_charset})
 
 MYSQL_CONN_DBAPI = {'host': db_host, 'user': db_user, 'password': db_password, 'database': db_database,
                     'charset': db_charset, 'port': db_port, 'autocommit': True}
@@ -52,7 +56,7 @@ def engine():
 
 
 def engine_to_db(to_db):
-    _engine = create_engine(MYSQL_CONN_URL.replace(f'/{db_database}?', f'/{to_db}?'))
+    _engine = create_engine(MYSQL_CONN_URL.set(database=to_db))
     return _engine
 
 
@@ -61,7 +65,7 @@ def get_connection():
     try:
         return pymysql.connect(**MYSQL_CONN_DBAPI)
     except Exception as e:
-        logging.error(f"database.conn_not_cursor处理异常：{MYSQL_CONN_DBAPI}{e}")
+        logging.error("数据库连接失败 (%s)", type(e).__name__)
     return None
 
 
@@ -115,54 +119,28 @@ def insert_other_db_from_df(to_db, data, table_name, cols_type, write_index, pri
 
 # 更新数据
 def update_db_from_df(data, table_name, where):
-    data = data.where(data.notnull(), None)
-    update_string = f'UPDATE `{table_name}` set '
-    where_string = ' where '
-    cols = tuple(data.columns)
+    identifiers = [table_name, *data.columns, *where]
+    if not all(re.fullmatch(r"[A-Za-z0-9_]+", str(value)) for value in identifiers):
+        raise ValueError("Invalid SQL identifier")
+    keys = list(where)
+    columns = [col for col in data.columns if col not in keys]
+    if not keys or not columns or not set(keys).issubset(data.columns):
+        raise ValueError("Update requires valid key and value columns")
+    data = data.astype(object).where(data.notna(), None)
+    sql = (f"UPDATE `{table_name}` SET " + ", ".join(f"`{col}` = %s" for col in columns)
+           + " WHERE " + " AND ".join(f"`{col}` <=> %s" for col in keys))
     with get_connection() as conn:
         with conn.cursor() as db:
-            try:
-                for row in data.values:
-                    sql = update_string
-                    sql_where = where_string
-                    for index, col in enumerate(cols):
-                        if col in where:
-                            if len(sql_where) == len(where_string):
-                                if type(row[index]) == str:
-                                    sql_where = f'''{sql_where}`{col}` = '{row[index]}' '''
-                                else:
-                                    sql_where = f'''{sql_where}`{col}` = {row[index]} '''
-                            else:
-                                if type(row[index]) == str:
-                                    sql_where = f'''{sql_where} and `{col}` = '{row[index]}' '''
-                                else:
-                                    sql_where = f'''{sql_where} and `{col}` = {row[index]} '''
-                        else:
-                            if type(row[index]) == str:
-                                if row[index] is None or row[index] != row[index]:
-                                    sql = f'''{sql}`{col}` = NULL, '''
-                                else:
-                                    sql = f'''{sql}`{col}` = '{row[index]}', '''
-                            else:
-                                if row[index] is None or row[index] != row[index]:
-                                    sql = f'''{sql}`{col}` = NULL, '''
-                                else:
-                                    sql = f'''{sql}`{col}` = {row[index]}, '''
-                    sql = f'{sql[:-2]}{sql_where}'
-                    db.execute(sql)
-            except Exception as e:
-                logging.error(f"database.update_db_from_df处理异常：{sql}{e}")
+            for _, row in data.iterrows():
+                db.execute(sql, tuple(row[col] for col in columns + keys))
 
 
 # 检查表是否存在
 def checkTableIsExist(tableName):
     with get_connection() as conn:
         with conn.cursor() as db:
-            db.execute("""
-                SELECT COUNT(*)
-                FROM information_schema.tables
-                WHERE table_name = '{0}'
-                """.format(tableName.replace('\'', '\'\'')))
+            db.execute("SELECT COUNT(*) FROM information_schema.tables "
+                       "WHERE table_schema = %s AND table_name = %s", (db_database, tableName))
             if db.fetchone()[0] == 1:
                 return True
     return False
@@ -175,7 +153,8 @@ def executeSql(sql, params=()):
             try:
                 db.execute(sql, params)
             except Exception as e:
-                logging.error(f"database.executeSql处理异常：{sql}{e}")
+                logging.error("数据库写操作失败 (%s)", type(e).__name__)
+                raise
 
 
 # 查询数据

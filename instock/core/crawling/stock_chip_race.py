@@ -7,6 +7,7 @@ http://excalc.icfqs.com:7616/TQLEX?Entry=HQServ.hq_nlp
 """
 
 import pandas as pd
+import os
 import requests
 from instock.core.singleton_proxy import proxys
 
@@ -20,6 +21,8 @@ def stock_chip_race_open(date: str = "") -> pd.DataFrame:
     :return: 早盘抢筹
     :rtype: pandas.DataFrame
     """
+    if os.environ.get("INSTOCK_ALLOW_INSECURE_TDX") != "1":
+        raise RuntimeError("通达信抢筹源仅提供明文 HTTP；默认禁用，详见安全部署说明")
     url = "http://excalc.icfqs.com:7616/TQLEX?Entry=HQServ.hq_nlp"
     #sort:1抢筹委托金额, 2抢筹成交金额, 3开盘金额, 4抢筹幅度, 5抢筹占比
     if date=="":
@@ -33,7 +36,7 @@ def stock_chip_race_open(date: str = "") -> pd.DataFrame:
         "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36 TdxW",
     }
 
-    r = requests.post(url, proxies = proxys().get_proxies(), json=params,headers=headers)
+    r = requests.post(url, proxies = proxys().get_proxies(), json=params,headers=headers, timeout=15)
     data_json = r.json()
     data = data_json["datas"]
     if not data:
@@ -88,6 +91,8 @@ def stock_chip_race_end(date: str = "") -> pd.DataFrame:
     :return: 尾盘抢筹
     :rtype: pandas.DataFrame
     """
+    if os.environ.get("INSTOCK_ALLOW_INSECURE_TDX") != "1":
+        raise RuntimeError("通达信抢筹源仅提供明文 HTTP；默认禁用，详见安全部署说明")
     url = "http://excalc.icfqs.com:7616/TQLEX?Entry=HQServ.hq_nlp"
     #sort:1抢筹委托金额, 2抢筹成交金额, 3开盘金额, 4抢筹幅度, 5抢筹占比
     if date=="":
@@ -101,7 +106,7 @@ def stock_chip_race_end(date: str = "") -> pd.DataFrame:
         "User-Agent": "TdxW",
     }
 
-    r = requests.post(url, proxies = proxys().get_proxies(), json=params,headers=headers)
+    r = requests.post(url, proxies = proxys().get_proxies(), json=params,headers=headers, timeout=15)
     data_json = r.json()
     data = data_json["datas"]
     if not data:

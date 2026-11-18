@@ -160,3 +160,6 @@ cython_debug/
 cache/
 log/
 test/
+# Local credentials and cookies
+instock/config/trade_client.json
+instock/config/eastmoney_cookie.txt

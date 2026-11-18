@@ -4,6 +4,8 @@
 
 import numpy as np
 import json
+from instock.web.html_utils import quote_link
+from instock.lib.validation import stock_code
 import logging
 import os.path
 # 首映 bokeh 画图。
@@ -27,6 +29,7 @@ __date__ = '2023/4/6 '
 
 
 def get_plot_kline(code, stock, date, stock_name):
+    stock_code(code)
     plot_list = []
     try:
 
@@ -220,9 +223,9 @@ def get_plot_kline(code, stock, date, stock_name):
         else:
             import instock.lib.database as mdb
             table_name = tbs.TABLE_CN_STOCK_ATTENTION['name']
-            _sql = f"SELECT EXISTS(SELECT 1 FROM `{table_name}` WHERE `code` = '{code}')"
+            _sql = f"SELECT EXISTS(SELECT 1 FROM `{table_name}` WHERE `code` = %s)"
             try:
-                rc = mdb.executeSqlCount(_sql)
+                rc = mdb.executeSqlCount(_sql, (code,))
             except Exception as e:
                 rc = 0
             if rc == 0:
@@ -241,7 +244,7 @@ def get_plot_kline(code, stock, date, stock_name):
         else:
             code_name = f"SZ{code}"
         div_dfcf_hq = Div(
-            text=f"""<a href="https://quote.eastmoney.com/{code_name}.html" target="_blank">{code}{stock_name}行情</a>""",
+            text=quote_link(code, stock_name),
             width=150)
         if code.startswith(('1', '5')):
             div_dfcf_zl = Div()

@@ -6,10 +6,12 @@
     Bokeh.set_log_level("error");
     function attention(code,obj){
             $.ajax({
-                type : "get",
+                type : "post",
+                headers: {"X-XSRFToken": decodeURIComponent((document.cookie.match(/(?:^|; )_xsrf=([^;]*)/) || [,""])[1])},
                 url : "/instock/control/attention",
                 data : {code:code,otype:obj.value},
-                dateType: "json",
+                dataType: "json",
+                error: function() { alert("关注操作失败，请刷新页面后重试"); },
                 success:function(json){
                     if (obj.value==="1"){
                         obj.value="0";

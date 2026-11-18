@@ -4,6 +4,7 @@
 import logging
 import os.path
 import sys
+import secrets
 from abc import ABC
 
 import tornado.escape
@@ -34,6 +35,10 @@ __date__ = '2023/3/10 '
 
 class Application(tornado.web.Application):
     def __init__(self):
+        web_user = os.environ.get("INSTOCK_WEB_USER", "")
+        web_password = os.environ.get("INSTOCK_WEB_PASSWORD", "")
+        if not web_user or not web_password:
+            raise RuntimeError("请设置 INSTOCK_WEB_USER 和 INSTOCK_WEB_PASSWORD")
         handlers = [
             # 设置路由
             (r"/", HomeHandler),
@@ -49,10 +54,11 @@ class Application(tornado.web.Application):
         settings = dict(  # 配置
             template_path=os.path.join(os.path.dirname(__file__), "templates"),
             static_path=os.path.join(os.path.dirname(__file__), "static"),
-            xsrf_cookies=False,  # True,
+            xsrf_cookies=True,
+            web_user=web_user, web_password=web_password,
             # cookie加密
-            cookie_secret="027bb1b670eddf0392cdda8709268a17b58b7",
-            debug=True,
+            cookie_secret=os.environ.get("INSTOCK_COOKIE_SECRET") or secrets.token_urlsafe(48),
+            debug=False,
         )
         super(Application, self).__init__(handlers, **settings)
         # Have one global connection to the blog DB across all handlers
@@ -74,7 +80,7 @@ def main():
 
     http_server = tornado.httpserver.HTTPServer(Application())
     port = 9988
-    http_server.listen(port)
+    http_server.listen(port, address=os.environ.get("INSTOCK_WEB_HOST", "127.0.0.1"))
 
     print(f"服务已启动，web地址 : http://localhost:{port}/")
     logging.error(f"服务已启动，web地址 : http://localhost:{port}/")

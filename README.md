@@ -1,3 +1,5 @@
+> 本分支安全配置和部署方式已更新：请先阅读 [安全修复与迁移说明](docs/security-fixes.md)。下文旧版安装示例中的默认密码、镜像及端口设置不适用于本分支。
+
 [对应IMA知识库](https://ima.qq.com/wiki/?shareId=8b0da768c77bc863f1cad8eb9482e37a6eeb26ad7171523b687d48c1a67c8e2c)：股票量化因子 AI 决策引擎，2200 + 维专业因子池，AI 深度解析多维数据，精准挖掘高确定性个股，赋能专业投资高效稳健决策。 https://ima.qq.com/wiki/?shareId=8b0da768c77bc863f1cad8eb9482e37a6eeb26ad7171523b687d48c1a67c8e2c 。
 
 **InStock股票系统**

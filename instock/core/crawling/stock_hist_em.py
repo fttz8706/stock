@@ -25,7 +25,7 @@ def stock_zh_a_spot_em() -> pd.DataFrame:
     :return: 实时行情
     :rtype: pandas.DataFrame
     """
-    url = "http://82.push2.eastmoney.com/api/qt/clist/get"
+    url = "https://82.push2.eastmoney.com/api/qt/clist/get"
     page_size = 50
     page_current = 1
     params = {
@@ -192,11 +192,11 @@ def stock_zh_a_spot_em() -> pd.DataFrame:
 def code_id_map_em() -> dict:
     """
     东方财富-股票和市场代码
-    http://quote.eastmoney.com/center/gridlist.html#hs_a_board
+    https://quote.eastmoney.com/center/gridlist.html#hs_a_board
     :return: 股票和市场代码
     :rtype: dict
     """
-    url = "http://80.push2.eastmoney.com/api/qt/clist/get"
+    url = "https://80.push2.eastmoney.com/api/qt/clist/get"
     page_size = 50
     page_current = 1
     params = {
@@ -336,7 +336,7 @@ def stock_zh_a_hist(
     code_id_dict = code_id_map_em()
     adjust_dict = {"qfq": "1", "hfq": "2", "": "0"}
     period_dict = {"daily": "101", "weekly": "102", "monthly": "103"}
-    url = "http://push2his.eastmoney.com/api/qt/stock/kline/get"
+    url = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
     params = {
         "fields1": "f1,f2,f3,f4,f5,f6",
         "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116",
@@ -453,7 +453,7 @@ def stock_zh_a_hist_min_em(
         temp_df["时间"] = pd.to_datetime(temp_df["时间"]).astype(str)
         return temp_df
     else:
-        url = "http://push2his.eastmoney.com/api/qt/stock/kline/get"
+        url = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
         params = {
             "fields1": "f1,f2,f3,f4,f5,f6",
             "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
@@ -522,7 +522,7 @@ def stock_zh_a_hist_pre_min_em(
 ) -> pd.DataFrame:
     """
     东方财富网-行情首页-沪深京 A 股-每日分时行情包含盘前数据
-    http://quote.eastmoney.com/concept/sh603777.html?from=classic
+    https://quote.eastmoney.com/concept/sh603777.html?from=classic
     :param symbol: 股票代码
     :type symbol: str
     :param start_time: 开始时间

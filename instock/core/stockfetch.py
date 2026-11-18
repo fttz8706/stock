@@ -350,7 +350,8 @@ def fetch_stock_hist(data_base, date_start=None, is_cache=True):
     code = data_base[1]
 
     if date_start is None:
-        date_start, is_cache = trd.get_trade_hist_interval(date)  # 提高运行效率，只运行一次
+        date_start, cache_allowed = trd.get_trade_hist_interval(date)
+        is_cache = is_cache and cache_allowed  # 提高运行效率，只运行一次
         # date_end = date_end.strftime("%Y%m%d")
     try:
         data = stock_hist_cache(code, date_start, None, is_cache, 'qfq')
@@ -366,36 +367,16 @@ def fetch_stock_hist(data_base, date_start=None, is_cache=True):
 
 # 增加读取股票缓存方法。加快处理速度。多线程解决效率
 def stock_hist_cache(code, date_start, date_end=None, is_cache=True, adjust=''):
-    cache_dir = os.path.join(stock_hist_cache_path, date_start[0:6], date_start)
-    # 如果没有文件夹创建一个。月文件夹和日文件夹。方便删除。
-    try:
-        if not os.path.exists(cache_dir):
-            os.makedirs(cache_dir)
-    except Exception:
-        pass
-    cache_file = os.path.join(cache_dir, "%s%s.gzip.pickle" % (code, adjust))
-    # 如果缓存存在就直接返回缓存数据。压缩方式。
-    try:
-        if os.path.isfile(cache_file):
-            return pd.read_pickle(cache_file, compression="gzip")
-        else:
-            if date_end is not None:
-                stock = she.stock_zh_a_hist(symbol=code, period="daily", start_date=date_start, end_date=date_end,
-                                            adjust=adjust)
-            else:
-                stock = she.stock_zh_a_hist(symbol=code, period="daily", start_date=date_start, adjust=adjust)
+    from instock.lib.history_cache import history_cache
 
-            if stock is None or len(stock.index) == 0:
-                return None
-            stock.columns = tuple(tbs.CN_STOCK_HIST_DATA['columns'])
-            stock = stock.sort_index()  # 将数据按照日期排序下。
-            try:
-                if is_cache:
-                    stock.to_pickle(cache_file, compression="gzip")
-            except Exception:
-                pass
-            # time.sleep(1)
-            return stock
-    except Exception as e:
-        logging.error(f"stockfetch.stock_hist_cache处理异常：{code}代码{e}")
-    return None
+    def fetch():
+        kwargs = dict(symbol=code, period="daily", start_date=date_start, adjust=adjust)
+        if date_end is not None:
+            kwargs["end_date"] = date_end
+        stock = she.stock_zh_a_hist(**kwargs)
+        if stock is None or stock.empty:
+            return None
+        stock.columns = tuple(tbs.CN_STOCK_HIST_DATA['columns'])
+        return stock.sort_index()
+
+    return history_cache(stock_hist_cache_path, code, date_start, date_end, adjust, is_cache, fetch)

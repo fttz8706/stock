@@ -1,6 +1,7 @@
 # 基础镜像
 # https://hub.docker.com/_/python/tags?page=1&name=3.11-slim-bullseye
 FROM docker.io/python:3.11-slim-bullseye
+COPY requirements.txt /tmp/requirements.txt
 
 MAINTAINER myh
 #增加语言utf-8
@@ -27,22 +28,6 @@ trusted-host = mirrors.aliyun.com" > /etc/pip.conf && \
     apt-get install -y cron gcc make python3-dev default-libmysqlclient-dev build-essential pkg-config curl && \
     pip install supervisor && \
     pip install mysqlclient && \
-    pip install requests && \
-    pip install arrow && \
-    pip install numpy && \
-    pip install SQLAlchemy && \
-    pip install PyMySQL && \
-    pip install Logbook && \
-    pip install python_dateutil && \
-    pip install py_mini_racer && \
-    pip install tqdm && \
-    pip install beautifulsoup4 && \
-    pip install bokeh && \
-    pip install pandas && \
-    pip install urllib3 && \
-    pip install tornado && \
-    pip install mini-racer && \
-    pip install easytrader && \
     mkdir ta-lib && \
     curl -SL $(curl -s https://api.github.com/repos/ta-lib/ta-lib/releases/latest | grep browser_download_url | cut -d'"' -f4 |grep -E 'tar.gz$') | tar -xz --strip-components=1 -C ./ta-lib && \
     cd ta-lib/ && \
@@ -50,14 +35,14 @@ trusted-host = mirrors.aliyun.com" > /etc/pip.conf && \
     make && \
     make install && \
     cd .. && \
-    pip install TA-Lib && \
+    pip install -r /tmp/requirements.txt && \
     rm -rf ta-lib* && \
     apt-get --purge remove -y gcc make python3-dev default-libmysqlclient-dev curl && \
     rm -rf /root/.cache/* && rm -rf /var/lib/apt/lists/* && apt-get clean && apt-get autoclean && apt-get autoremove -y
 
 WORKDIR /data
 #InStock软件
-COPY stock /data/InStock
+COPY . /data/InStock
 COPY cron/cron.hourly /etc/cron.hourly
 COPY cron/cron.workdayly /etc/cron.workdayly
 COPY cron/cron.monthly /etc/cron.monthly

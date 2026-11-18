@@ -1,0 +1,11 @@
+.git
+.env
+.env.*
+.venv
+**/__pycache__
+**/.pytest_cache
+instock/cache
+instock/log
+instock/config/trade_client.json
+instock/config/eastmoney_cookie.txt
+instock/config/proxy.txt

@@ -8,6 +8,8 @@ from urllib3.util.retry import Retry
 from pathlib import Path
 import time
 import random
+from http.cookies import SimpleCookie
+from urllib.parse import urlsplit
 from instock.core.singleton_proxy import proxys
 
 __author__ = 'myh '
@@ -28,7 +30,7 @@ class eastmoney_fetcher:
     def _get_cookie(self):
         """
         获取东方财富网的Cookie
-        优先级：环境变量 > 文件 > 默认Cookie
+        优先级：环境变量 > 文件；无配置时不发送 Cookie
         """
         # 1. 尝试从环境变量获取
         cookie = os.environ.get('EAST_MONEY_COOKIE')
@@ -45,8 +47,7 @@ class eastmoney_fetcher:
                 # print("文件中的Cookie: 已设置")
                 return cookie
 
-        # 3. 默认Cookie（可能过期，仅作为备选）
-        return 'st_si=78948464251292; st_psi=20260205091253851-119144370567-1089607836; st_pvi=07789985376191; st_sp=2026-02-05%2009%3A11%3A13; st_inirUrl=https%3A%2F%2Fxuangu.eastmoney.com%2FResult; st_sn=12; st_asi=20260205091253851-119144370567-1089607836-webznxg.dbssk.qxg-1'
+        return ''
 
     def _create_session(self):
         """创建并配置会话"""
@@ -80,7 +81,7 @@ class eastmoney_fetcher:
         }
         session.headers.update(headers)
         # 设置Cookie
-        session.cookies.update({'Cookie': self._get_cookie()})
+        self._set_cookie(session, self._get_cookie())
         return session
 
     def make_request(self, url, params=None, retry=3, timeout=10):
@@ -92,14 +93,18 @@ class eastmoney_fetcher:
         :param timeout: 超时时间
         :return: 响应对象
         """
+        self._validate_url(url)
         for i in range(retry):
             try:
                 response = self.session.get(
                     url,
                     proxies=self.proxies,
                     params=params,
+                    allow_redirects=False,
                     timeout=timeout
                 )
+                if 300 <= response.status_code < 400:
+                    raise ValueError("Redirects from data providers are not allowed")
                 response.raise_for_status()  # 检查HTTP错误
                 return response
             except requests.exceptions.RequestException as e:
@@ -121,6 +126,7 @@ class eastmoney_fetcher:
         :param timeout: 超时时间
         :return: 响应对象
         """
+        self._validate_url(url)
         for i in range(retry):
             try:
                 response = self.session.post(
@@ -129,8 +135,11 @@ class eastmoney_fetcher:
                     params=params,
                     data=data,
                     json=json,
+                    allow_redirects=False,
                     timeout=timeout
                 )
+                if 300 <= response.status_code < 400:
+                    raise ValueError("Redirects from data providers are not allowed")
                 response.raise_for_status()  # 检查HTTP错误
                 return response
             except requests.exceptions.RequestException as e:
@@ -146,4 +155,19 @@ class eastmoney_fetcher:
         更新Cookie
         :param new_cookie: 新的Cookie值
         """
-        self.session.cookies.update({'Cookie': new_cookie})
+        self._set_cookie(self.session, new_cookie)
+
+    @staticmethod
+    def _set_cookie(session, value):
+        session.cookies.clear()
+        cookies = SimpleCookie()
+        cookies.load(value)
+        for name, morsel in cookies.items():
+            session.cookies.set(name, morsel.value, domain=".eastmoney.com", path="/", secure=True)
+
+    @staticmethod
+    def _validate_url(url):
+        parsed = urlsplit(url)
+        host = parsed.hostname or ""
+        if parsed.scheme != "https" or not (host == "eastmoney.com" or host.endswith(".eastmoney.com")):
+            raise ValueError("Only HTTPS Eastmoney endpoints are allowed")

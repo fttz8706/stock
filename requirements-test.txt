@@ -1,0 +1,10 @@
+pytest>=8,<10
+tornado==6.5.4
+pandas==2.3.3
+numpy==2.4.1
+requests==2.32.5
+SQLAlchemy==2.0.45
+PyMySQL==1.1.2
+arrow==1.4.0
+Logbook==1.9.2
+python_dateutil==2.9.0.post0

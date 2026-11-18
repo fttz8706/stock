@@ -19,6 +19,7 @@ __date__ = '2025/1/6 '
 # 读取代理
 class proxys(metaclass=singleton_type):
     def __init__(self):
+        self.data = []
         try:
             with open(proxy_filename, "r") as file:
                 self.data = list(set(line.strip() for line in file.readlines() if line.strip()))
@@ -57,7 +58,7 @@ def https_validator(proxy):
                'Accept-Language': 'zh-CN,zh;q=0.8'}
     proxies = {"http": f"{proxy}", "https": f"{proxy}"}
     try:
-        r = head("https://data.eastmoney.com", headers=headers, proxies=proxies, timeout=3, verify=False)
+        r = head("https://data.eastmoney.com", headers=headers, proxies=proxies, timeout=3, verify=True)
         return True if r.status_code == 200 else False
     except Exception as e:
         return False

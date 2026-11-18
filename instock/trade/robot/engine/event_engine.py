@@ -4,7 +4,8 @@
 
 from collections import defaultdict
 from queue import Queue, Empty
-from threading import Thread
+from threading import Thread, RLock
+import logging
 
 __author__ = 'myh '
 __date__ = '2023/4/10 '
@@ -32,24 +33,26 @@ class EventEngine:
 
         # 事件字典，key 为时间， value 为对应监听事件函数的列表
         self.__handlers = defaultdict(list)
+        self.__lock = RLock()
 
     def __run(self):
         """启动引擎"""
         while self.__active:
             try:
                 event = self.__queue.get(block=True, timeout=1)
-                handle_thread = Thread(target=self.__process, name="EventEngine.__process", args=(event,))
-                handle_thread.start()
+                self.__process(event)
             except Empty:
                 pass
 
     def __process(self, event):
         """事件处理"""
-        # 检查该事件是否有对应的处理函数
-        if event.event_type in self.__handlers:
-            # 若存在,则按顺序将时间传递给处理函数执行
-            for handler in self.__handlers[event.event_type]:
+        with self.__lock:
+            handlers = tuple(self.__handlers.get(event.event_type, ()))
+        for handler in handlers:
+            try:
                 handler(event)
+            except Exception:
+                logging.exception("Strategy event handler failed")
 
     def start(self):
         """引擎启动"""
@@ -63,18 +66,17 @@ class EventEngine:
 
     def register(self, event_type, handler):
         """注册事件处理函数监听"""
-        if handler not in self.__handlers[event_type]:
-            self.__handlers[event_type].append(handler)
+        with self.__lock:
+            if handler not in self.__handlers[event_type]:
+                self.__handlers[event_type].append(handler)
 
     def unregister(self, event_type, handler):
-        """注销事件处理函数"""
-        handler_list = self.__handlers.get(event_type)
-        if handler_list is None:
-            return
-        if handler in handler_list:
-            handler_list.remove(handler)
-        if len(handler_list) == 0:
-            self.__handlers.pop(event_type)
+        with self.__lock:
+            handlers = self.__handlers.get(event_type, [])
+            if handler in handlers:
+                handlers.remove(handler)
+            if not handlers:
+                self.__handlers.pop(event_type, None)
 
     def put(self, event):
         self.__queue.put(event)
