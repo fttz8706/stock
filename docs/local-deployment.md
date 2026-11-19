@@ -31,3 +31,18 @@ docker compose --env-file ~/.config/instock/instock.env -f docker/docker-compose
 `run_job` 是一次性任务（`autorestart=false`），正常结束后显示 EXITED；
 Web 和 cron 应保持 RUNNING。旧任务会记录部分上游错误后继续，因此退出码 0
 或“完成任务”日志不能作为完整采集成功的依据，需结合错误日志和数据库数据检查。
+
+## 每日股票快照展示
+
+用户选择先恢复每日行情页面后，本机 override 设置 `INSTOCK_DAILY_SNAPSHOT: "1"`。
+`/instock/data?table_name=cn_stock_spot` 只读投影 `cn_stock_selection` 中的同名字段，
+不写入或覆盖 `cn_stock_spot`，不向指标/策略计算输入缺失快照。
+默认日期取快照表最新日期；日期筛选按源数据日期执行，找不到该日期则为空。
+页面顶部显示来源和缺失字段；导出文件名带有“东方财富选股快照-含缺失字段”。
+接口响应头 `X-InStock-Data-Source` 为 `eastmoney-selection-snapshot`。
+成交量跨接口单位未核实，因此留空；其余无同名字段也留空，不填 0 或推算。
+将开关改为 "0" 并重新创建 Web 容器，可恢复原行情表展示。
+验证时 4529 条，数据日期 2026-11-19；这不表示实时采集、ETF、指标和策略已恢复。
+
+总任务现在统计运行期间 ERROR 日志：存在错误则以非零状态退出。
+启动脚本使用 exec 保留 Python 退出码；不会因脚本尾部 echo 掩盖失败。

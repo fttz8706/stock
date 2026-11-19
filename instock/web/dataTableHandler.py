@@ -12,6 +12,7 @@ from instock.lib.validation import trade_date
 import instock.lib.trade_time as trd
 import instock.core.singleton_stock_web_module_data as sswmd
 import instock.web.base as webBase
+from instock.web import quote_snapshot
 
 __author__ = 'myh '
 __date__ = '2023/3/10 '
@@ -44,7 +45,15 @@ class GetStockHtmlHandler(webBase.BaseHandler, ABC):
             date_now_str = run_date_nph.strftime("%Y-%m-%d")
         else:
             date_now_str = run_date.strftime("%Y-%m-%d")
-        self.render("stock_web.html", web_module_data=web_module_data, date_now=date_now_str,
+        snapshot_notice = ""
+        if quote_snapshot.enabled(web_module_data.table_name):
+            latest = self.db.query("SELECT MAX(`date`) AS latest FROM `cn_stock_selection`")[0]["latest"]
+            if latest:
+                date_now_str = latest.strftime("%Y-%m-%d")
+            snapshot_notice = ("每日行情快照 · 来源：东方财富综合选股；非实时行情。"
+                               "数据日期见日期栏，历史日期无记录时显示为空。缺失或口径未核实字段留空："
+                               + quote_snapshot.projection()[1])
+        self.render("stock_web.html", snapshot_notice=snapshot_notice, web_module_data=web_module_data, date_now=date_now_str,
                     leftMenu=webBase.GetLeftMenu(self.request.uri))
 
 
@@ -74,6 +83,10 @@ class GetStockDataHandler(webBase.BaseHandler, ABC):
             order_columns = f",{web_module_data.order_columns}"
 
         sql = f" SELECT *{order_columns} FROM `{web_module_data.table_name}`{where}{order_by}"
+        if quote_snapshot.enabled(web_module_data.table_name):
+            columns, missing = quote_snapshot.projection()
+            sql = f"SELECT {columns} FROM `cn_stock_selection`{where} ORDER BY `code`"
+            self.set_header("X-InStock-Data-Source", "eastmoney-selection-snapshot")
         if date is not None:
             try:
                 trade_date(date)

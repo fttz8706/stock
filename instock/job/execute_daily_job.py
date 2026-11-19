@@ -32,7 +32,7 @@ __author__ = 'myh '
 __date__ = '2023/3/10 '
 
 
-def main():
+def _run_jobs():
     start = time.time()
     _start = datetime.datetime.now()
     logging.info("######## 任务执行时间: %s #######" % _start.strftime("%Y-%m-%d %H:%M:%S.%f"))
@@ -51,7 +51,29 @@ def main():
     # # # # 第7步创建股票闭盘后才有的数据
     acdj.main()
 
-    logging.info("######## 完成任务, 使用时间: %s 秒 #######" % (time.time() - start))
+
+
+
+class JobErrorCounter(logging.Handler):
+    def __init__(self):
+        super().__init__(logging.ERROR)
+        self.count = 0
+
+    def emit(self, record):
+        self.count += 1
+
+
+def main():
+    counter = JobErrorCounter()
+    logger = logging.getLogger()
+    logger.addHandler(counter)
+    try:
+        _run_jobs()
+    finally:
+        logger.removeHandler(counter)
+    if counter.count:
+        raise RuntimeError(f"任务部分失败：记录了 {counter.count} 个错误，请检查采集日志")
+    logging.info("######## 完成任务（未记录错误） #######")
 
 
 # main函数入口
