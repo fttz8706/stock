@@ -44,7 +44,10 @@ class TestProtectedWeb(AsyncHTTPTestCase):
         return headers
 
     def test_auth(self):
-        assert self.fetch('/').code == 401
+        response = self.fetch('/')
+        assert response.code == 401
+        assert response.headers['WWW-Authenticate'] == 'Basic realm="InStock", charset="UTF-8"'
+        assert response.headers['Cache-Control'] == 'no-store'
         assert self.fetch('/',headers={'Authorization':'Basic invalid'}).code == 401
         assert self.fetch('/',headers=self.headers()).code == 200
 

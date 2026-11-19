@@ -33,6 +33,13 @@ class BaseHandler(tornado.web.RequestHandler, ABC):
         self.set_header("X-Content-Type-Options", "nosniff")
         self.set_header("X-Frame-Options", "DENY")
 
+    def write_error(self, status_code, **kwargs):
+        # Tornado clears headers set in prepare() before rendering HTTP errors.
+        if status_code == 401:
+            self.set_header("WWW-Authenticate", 'Basic realm="InStock", charset="UTF-8"')
+            self.set_header("Cache-Control", "no-store")
+        super().write_error(status_code, **kwargs)
+
     @property
     def db(self):
         try:
