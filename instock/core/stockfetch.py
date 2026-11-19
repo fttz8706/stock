@@ -28,7 +28,7 @@ __date__ = '2023/3/10 '
 cpath_current = os.path.dirname(os.path.dirname(__file__))
 stock_hist_cache_path = os.path.join(cpath_current, 'cache', 'hist')
 if not os.path.exists(stock_hist_cache_path):
-    os.makedirs(stock_hist_cache_path)  # 创建多个文件夹结构。
+    os.makedirs(stock_hist_cache_path, exist_ok=True)  # 创建多个文件夹结构。
 
 
 # 600 601 603 605开头的股票是上证A股

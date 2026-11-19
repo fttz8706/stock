@@ -1,0 +1,10 @@
+# 本地部署覆盖：宿主机 /data 未加入 Docker Desktop File Sharing，
+# 改用 Docker 命名卷持久化 MariaDB 数据。
+services:
+  instockdbservice:
+    volumes:
+      - instockdb_data:/var/lib/mysql
+
+volumes:
+  instockdb_data:
+    name: instockdb_data

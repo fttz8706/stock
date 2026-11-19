@@ -1,6 +1,6 @@
 # 基础镜像
-# https://hub.docker.com/_/python/tags?page=1&name=3.11-slim-bullseye
-FROM docker.io/python:3.11-slim-bullseye
+# https://hub.docker.com/_/python/tags?page=1&name=3.11-slim-bookworm
+FROM python:3.11-slim-bookworm
 COPY requirements.txt /tmp/requirements.txt
 
 MAINTAINER myh
@@ -18,7 +18,7 @@ EXPOSE 9988
 # 安装依赖库
 # apt-get autoremove -y 删除没有用的依赖lib
 # apt-get --purge remove 软件包名称 , 删除已安装包（不保留配置文件)
-RUN sed -i "s@http://\(deb\|security\).debian.org@https://mirrors.aliyun.com@g" /etc/apt/sources.list && \
+RUN sed -i "s@http://deb.debian.org@https://mirrors.aliyun.com@g; s@http://security.debian.org@https://mirrors.aliyun.com@g" /etc/apt/sources.list.d/debian.sources && \
     echo  "[global]\n\
 index-url = https://mirrors.aliyun.com/pypi/simple\n\
 trusted-host = mirrors.aliyun.com" > /etc/pip.conf && \
